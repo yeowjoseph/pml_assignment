@@ -1,0 +1,84 @@
+---
+title: "practical_machine_learning"
+author: "Joseph"
+date: "24 August, 2015"
+output: html_document
+---
+
+##Introduction
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement ??? a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it.
+
+In this project, the goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants to predict the manner in which they did the exercise.
+
+```{r}
+library(caret)
+library(rpart)
+library(rpart.plot)
+library(randomForest)
+```
+
+##Downloading the data
+The training data can be downloaded from the trainUrl
+```{r}
+trainUrl <-"https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+```
+The testing data can be downloaded from the testUrl
+```{r}
+testUrl <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+```
+
+##Reading the data
+```{r}
+pml_train <- read.csv("./pml-training.csv", na.strings=c("NA","#DIV/0!",""));
+pml_test <- read.csv("./pml-testing.csv", na.strings=c("NA","#DIV/0!",""));
+dim(pml_train); dim(pml_test);
+```
+
+##Partitioning the data
+```{r}
+in_train <- createDataPartition(y=pml_train$classe, p=0.6, list=FALSE);
+train_data <- pml_train[in_train, ];
+test_data <- pml_train[-in_train, ];
+dim(train_data); dim(test_data);
+```
+
+##Removing columns with near zero variance
+```{r}
+nzv <- nearZeroVar(pml_train, saveMetrics = TRUE); nzv;
+non_nzv_train <- pml_train[, -nearZeroVar(pml_train)];
+dim(non_nzv_train);
+```
+
+##Removing columns with <80% NAs
+```{r}
+non_na_train <- non_nzv_train[, colSums(is.na(non_nzv_train)) < nrow(non_nzv_train) * 0.8];
+str(non_na_train);
+```
+
+##Removing un-important columns X, user_name and timestamp
+```{r}
+non_na_train <- non_na_train[,7:length(colnames(non_na_train))]
+str(non_na_train);
+```
+
+##Keep similar columns in train and test set
+```{r}
+test_data <- test_data[names(non_na_train)];
+str(test_data);
+```
+
+##Keep similar columns in pml_test with the exception of 'classe/problem_id'
+```{r}
+pml_test <- pml_test[c(names(non_na_train)[1:52],'problem_id')];
+str(pml_test);
+```
+
+##Predictions for pml_test data of 20 observations
+```{r}
+fit <- train(classe~., method="rf", data=non_na_train); fit;
+predictions1 <- predict(fit, newdata=test_data);
+confusionMatrix(predictions1, test_data$classe);
+predictions2 <- predict(fit, newdata=pml_test);
+predictions2
+```
